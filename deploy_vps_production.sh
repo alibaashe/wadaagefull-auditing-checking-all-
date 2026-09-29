@@ -38,17 +38,62 @@ echo "  - NPM Version: $(npm -v)"
 echo "⚡ [3/7] Installing PM2 and tsx process managers globally..."
 sudo npm install -g pm2 tsx esbuild
 
-# 4. Install Project Dependencies & Build Production Bundle
-echo "🔨 [4/7] Installing npm packages and compiling Wadaage full-stack bundle..."
+# 4. Environment File Configuration (.env)
+echo "🔒 [4/7] Writing / verifying environment configuration (.env)..."
+if [ -f .env.example ]; then
+    cp .env.example .env
+else
+    cat << 'EOF' > .env
+VITE_SITE_URL=https://www.wadaage.com
+VITE_API_URL=https://www.wadaage.com
+PORT=3000
+NODE_ENV=production
+
+# GOOGLE MAPS PLATFORM
+VITE_GOOGLE_MAPS_API_KEY="AIzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w"
+GOOGLE_MAPS_API_KEY="AIzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w"
+
+# 2. CARTO / OPENSTREETMAP RASTER TILE API KEY
+VITE_CARTO_API_KEY="cb1_3oi6_1_010bdeb81fa08ff3ccc0d40e"
+CARTO_API_KEY="cb1_3oi6_1_010bdeb81fa08ff3ccc0d40e"
+
+# 3. OSRM ROUTING & MAP CONFIGURATION
+VITE_OSRM_BASE_URL="https://router.project-osrm.org"
+OSRM_BASE_URL="https://router.project-osrm.org"
+DEFAULT_SEARCH_RADIUS_KM=1.5
+
+# 4. FIREBASE CLOUD & FIRESTORE CONFIGURATION
+VITE_FIREBASE_PROJECT_ID="gen-lang-client-0601164028"
+VITE_FIREBASE_DATABASE_ID="ai-studio-grabtaxisharedri-e45d19b0-1b7f-4529-bd6a-f0aebd18cea8"
+VITE_FIREBASE_API_KEY="AIzaSyBmiQMl4n1WvvIvZPlYwXnhCf3KRCYalow"
+VITE_FIREBASE_AUTH_DOMAIN="gen-lang-client-0601164028.firebaseapp.com"
+
+# 5. DATABASE CONFIGURATION
+DB_HOST="194.59.164.74"
+DB_USER="u601059536_admhenwadgrnt"
+DB_PASSWORD="Goormaweeyi2026"
+DB_NAME="u601059536_newsdatbase"
+DB_PORT=3306
+DB_SSL=false
+
+# 6. WHATSAPP CONFIGURATION
+WHATSAPP_PHONE_NUMBER_ID=1297794856758656
+WHATSAPP_TOKEN=EAGXHZCxyX8UcBSmO8xaMDm54OGDvivcGBX4wI9pJ6WD1VsSF1WjPagXk20yk4poKZCMrKASqXM2KjxaRkSIZAY69fGLbJZBqYFuvttJLT3QmZABMM3p3NVJbGxur8WOkm6ZAnIn3uveZAGgkhAsR14PUZAzqCnTTJ6LrAjEr4FghWHGSnvn1ZBSlsiztSK9F4mSvRsQZDZD
+WHATSAPP_VERIFY_TOKEN=WadaageCabiir&123
+WHATSAPP_WEBHOOK_URL=https://www.wadaage.com/api/webhook/whatsapp
+WHATSAPP_GATEWAY_URL=https://www.wadaage.com/api/whatsapp/send-otp
+EOF
+fi
+
+# Also create .env.example if missing
+if [ ! -f .env.example ]; then
+    cp .env .env.example
+fi
+
+# 5. Install Project Dependencies & Build Production Bundle
+echo "🔨 [5/7] Installing npm packages and compiling Wadaage full-stack bundle..."
 npm install --production=false
 npm run build
-
-# 5. Environment File Configuration (.env)
-echo "🔒 [5/7] Checking environment configuration (.env)..."
-if [ ! -f .env ]; then
-    echo "  - Creating .env from .env.example..."
-    cp .env.example .env
-fi
 
 # 6. Configure Nginx Reverse Proxy
 echo "🌐 [6/7] Configuring Nginx Reverse Proxy for Port 3000..."
@@ -87,7 +132,7 @@ sudo systemctl reload nginx
 
 # 7. Start / Restart PM2 Engine
 echo "🚀 [7/7] Starting Wadaage Engine via PM2..."
-pm2 delete wadaage-app 2>/dev/null || true
+pm2 delete wadaage-mobility wadaage-production wadaage-app 2>/dev/null || true
 pm2 start ecosystem.config.cjs --env production
 pm2 save
 sudo pm2 startup systemd -u $USER --hp $HOME 2>/dev/null || true
@@ -96,6 +141,7 @@ echo "===================================================================="
 echo "🎉 WADAAGE MOBILITY DEPLOYMENT COMPLETED SUCCESSFULLY!"
 echo "📍 Directory: /var/www/wadaage"
 echo "🌐 Server Proxy: http://127.0.0.1:3000 -> https://www.wadaage.com"
-echo "👉 Optional SSL Setup (Let's Encrypt):"
-echo "   sudo certbot --nginx -d wadaage.com -d www.wadaage.com"
+echo "👉 Manage Process with PM2:"
+echo "   pm2 restart wadaage-mobility"
+echo "   pm2 logs wadaage-mobility"
 echo "===================================================================="
