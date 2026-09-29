@@ -35,7 +35,7 @@ const RAW_GOOGLE_MAPS_KEY =
   (process.env as any).GOOGLE_MAPS_API_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-  'AlzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w';
+  'AIzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w';
 
 // Production Google Maps key
 const GOOGLE_MAPS_KEY = RAW_GOOGLE_MAPS_KEY.trim();
@@ -778,13 +778,35 @@ const GoogleMapRenderer: React.FC<GoogleInteractiveMapProps> = ({
 };
 
 export const GoogleInteractiveMap: React.FC<GoogleInteractiveMapProps> = (props) => {
-  if (!GOOGLE_MAPS_KEY) {
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    const handleAuthFailure = () => {
+      console.warn('Google Maps API authentication/load failed. Falling back to MapLibre.');
+      setLoadError(true);
+    };
+    (window as any).gm_authFailure = handleAuthFailure;
+    return () => {
+      if ((window as any).gm_authFailure === handleAuthFailure) {
+        delete (window as any).gm_authFailure;
+      }
+    };
+  }, []);
+
+  if (!GOOGLE_MAPS_KEY || loadError) {
     return <MapLibreInteractiveMap {...props} />;
   }
 
   return (
     <MapErrorBoundary fallback={<MapLibreInteractiveMap {...props} />}>
-      <APIProvider apiKey={GOOGLE_MAPS_KEY} libraries={['places', 'geometry']}>
+      <APIProvider
+        apiKey={GOOGLE_MAPS_KEY}
+        libraries={['places', 'geometry']}
+        onError={(err) => {
+          console.warn('APIProvider onError caught:', err);
+          setLoadError(true);
+        }}
+      >
         <GoogleMapRenderer {...props} />
       </APIProvider>
     </MapErrorBoundary>

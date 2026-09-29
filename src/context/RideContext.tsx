@@ -3050,7 +3050,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 3. Create completed ledger transaction
     const newTx: DriverWalletTransaction = {
-      id: `dtx_admin_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `dtx_admin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       driverId: targetId,
       driverName: targetName,
       driverPhone: targetPhone,
@@ -3164,7 +3164,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Create completed audit transaction log
     const newTx: DriverWalletTransaction = {
-      id: `dtx_ctrl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `dtx_ctrl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       driverId: targetId,
       driverName: targetName,
       driverPhone: targetPhone,
@@ -3247,7 +3247,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const newTx: WalletTransaction = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       type: 'topup',
       amount: safeAmount,
       title: note || 'Admin Wallet Credit',
