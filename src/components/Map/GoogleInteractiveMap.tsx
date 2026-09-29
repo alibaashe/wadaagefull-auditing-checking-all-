@@ -35,7 +35,7 @@ const RAW_GOOGLE_MAPS_KEY =
   (process.env as any).GOOGLE_MAPS_API_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w';
+  '';
 
 // Production Google Maps key
 const GOOGLE_MAPS_KEY = RAW_GOOGLE_MAPS_KEY.trim();
