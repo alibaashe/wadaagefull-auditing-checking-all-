@@ -781,14 +781,42 @@ export const GoogleInteractiveMap: React.FC<GoogleInteractiveMapProps> = (props)
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    // 1. Listen for Google Maps auth failure callback
     const handleAuthFailure = () => {
       console.warn('Google Maps API authentication/load failed. Falling back to MapLibre.');
       setLoadError(true);
     };
     (window as any).gm_authFailure = handleAuthFailure;
+
+    // 2. Hide Google error modal dialog overlay if inserted into DOM
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = `
+      .gm-err-container, .gm-err-modal, .gm-err-content, .gm-style-moc {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    // 3. Monitor DOM for Google error dialogs
+    const observer = new MutationObserver(() => {
+      const errModal = document.querySelector('.gm-err-container, .gm-err-modal, .gm-err-content');
+      if (errModal) {
+        console.warn('Google Maps error container detected in DOM. Triggering fallback to MapLibre.');
+        setLoadError(true);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     return () => {
       if ((window as any).gm_authFailure === handleAuthFailure) {
         delete (window as any).gm_authFailure;
+      }
+      observer.disconnect();
+      if (styleEl.parentNode) {
+        styleEl.parentNode.removeChild(styleEl);
       }
     };
   }, []);
