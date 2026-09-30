@@ -116,6 +116,7 @@ export const MobileDriverApp: React.FC = () => {
     toggleDriverLiveGps,
     updateDriverLiveCoordinates,
     allPlatformRides,
+    createStreetHailRide,
   } = useRide();
 
   // Bottom Navigation Active Tab: 'home' | 'my_rides' | 'fuel' | 'earnings' | 'profile' | 'active_ride' | 'settings'
@@ -148,6 +149,14 @@ export const MobileDriverApp: React.FC = () => {
   const [showCallPassengerModal, setShowCallPassengerModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferNotice, setTransferNotice] = useState<string | null>(null);
+
+  // Street Hail (Manual Order Entry) State
+  const [showStreetHailModal, setShowStreetHailModal] = useState(false);
+  const [streetPassengerName, setStreetPassengerName] = useState('');
+  const [streetPassengerPhone, setStreetPassengerPhone] = useState('');
+  const [streetDestination, setStreetDestination] = useState('');
+  const [streetFareUsd, setStreetFareUsd] = useState('3.50');
+  const [streetPaymentMethod, setStreetPaymentMethod] = useState<'cash' | 'wallet'>('cash');
   const [kycAlertMessage, setKycAlertMessage] = useState<string | null>(null);
 
   // Determine current driver's KYC status
@@ -381,6 +390,19 @@ export const MobileDriverApp: React.FC = () => {
                   {driverModeOnline ? 'Online' : 'Offline'}
                 </span>
               </button>
+
+              {/* Manual Street Hail Button */}
+              {!currentRide && driverModeOnline && (
+                <button
+                  type="button"
+                  onClick={() => setShowStreetHailModal(true)}
+                  className="bg-[#008751] hover:bg-[#007445] text-white rounded-full px-3.5 py-1.5 shadow-lg border border-emerald-400/50 flex items-center space-x-1.5 active:scale-95 transition cursor-pointer font-extrabold text-xs"
+                  title="Manual Street Hail Order Entry"
+                >
+                  <Car className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                  <span>+ Street Pickup</span>
+                </button>
+              )}
 
               {/* Small Today's Earnings Pill */}
               <button
@@ -2755,6 +2777,119 @@ export const MobileDriverApp: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* Manual Street Hail (Direct Pickup) Modal */}
+      {showStreetHailModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center space-x-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Car className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white">Manual Street Hail Pickup</h3>
+                  <p className="text-[11px] text-slate-400">Normal Taxi On-Road Passenger Entry</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStreetHailModal(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Passenger Name (Magaca Rakaabka)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Maxamed Cali"
+                  value={streetPassengerName}
+                  onChange={(e) => setStreetPassengerName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Phone Number (Tel Rakaabka)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. +252634000000"
+                  value={streetPassengerPhone}
+                  onChange={(e) => setStreetPassengerPhone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">Destination Address (Goobta Uu Tagayo)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Jigjiga Yar / Downtown"
+                  value={streetDestination}
+                  onChange={(e) => setStreetDestination(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Agreed Fare (USD)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="3.50"
+                    value={streetFareUsd}
+                    onChange={(e) => setStreetFareUsd(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Payment Method</label>
+                  <select
+                    value={streetPaymentMethod}
+                    onChange={(e) => setStreetPaymentMethod(e.target.value as any)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="cash">Cash (Lacag Caan Ah)</option>
+                    <option value="wallet">Wadaage Wallet</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fare = parseFloat(streetFareUsd) || 3.50;
+                    if (createStreetHailRide) {
+                      createStreetHailRide({
+                        name: streetPassengerName,
+                        phone: streetPassengerPhone,
+                        destinationAddress: streetDestination,
+                        fareUsd: fare,
+                        paymentMethod: streetPaymentMethod,
+                      });
+                    }
+                    setShowStreetHailModal(false);
+                    setStreetPassengerName('');
+                    setStreetPassengerPhone('');
+                    setStreetDestination('');
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-[#008751] hover:bg-[#007445] text-white font-extrabold text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-200" />
+                  <span>Start Manual Street Trip (Start Trip)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

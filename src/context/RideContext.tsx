@@ -286,6 +286,7 @@ interface RideContextType {
   getDispatchRadiusKm: (category?: string) => number;
   isOrderWithinDriverDispatchRadius: (ride: { pickup?: { lat: number; lng: number }; category?: string } | null | undefined) => { isWithinRadius: boolean; distanceKm: number; allowedRadiusKm: number };
   validateWadaageMatch: (currentTrip: any, newRequest: any, driverLoc?: { lat: number; lng: number }, options?: any) => ValidateWadaageMatchResult;
+  createStreetHailRide?: (passengerData: { name: string; phone: string; destinationAddress?: string; fareUsd?: number; paymentMethod?: 'cash' | 'wallet' }) => void;
   // User & Driver Direct Registration (with WhatsApp OTP)
   registerRider: (userData: { name: string; phone: string; email?: string; password?: string }) => AuthUser;
   updateUserPassword: (userIdOrPhone: string, newPassword: string) => Promise<boolean>;
@@ -3579,6 +3580,75 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     broadcastRideEvent('RIDE_REQUESTED', newRide);
   };
 
+  // Create Manual Street Hail Ride (Direct Pickup on the Road by Driver)
+  const createStreetHailRide = (passengerData: {
+    name: string;
+    phone: string;
+    destinationAddress?: string;
+    fareUsd?: number;
+    paymentMethod?: 'cash' | 'wallet';
+  }) => {
+    const activeDriverId = currentUser?.role === 'driver' ? (currentUser.id || currentUser.phone || 'drv_01') : 'drv_01';
+    const activeDriverPhone = currentUser?.role === 'driver' ? (currentUser.phone || '') : '';
+    const activeDriverName = currentUser?.role === 'driver' ? (currentUser.name || 'Captain') : 'Captain';
+
+    const driverLoc = getDriverCoordinates();
+    const pickupNode: LocationNode = {
+      id: `hail_pick_${Date.now()}`,
+      name: 'Direct Street Pickup',
+      address: `Street Hail: ${driverLoc.lat.toFixed(4)}, ${driverLoc.lng.toFixed(4)}, Hargeisa`,
+      lat: driverLoc.lat,
+      lng: driverLoc.lng,
+      zone: 'Hargeisa',
+    };
+
+    const destAddress = passengerData.destinationAddress?.trim() || 'Hargeisa Destination';
+    const dropoffNode: LocationNode = {
+      id: `hail_drop_${Date.now()}`,
+      name: destAddress,
+      address: `${destAddress}, Hargeisa`,
+      lat: driverLoc.lat + 0.015,
+      lng: driverLoc.lng + 0.015,
+      zone: 'Hargeisa',
+    };
+
+    const fare = passengerData.fareUsd && passengerData.fareUsd > 0 ? passengerData.fareUsd : 3.50;
+
+    const streetHailRide: RideRequest = {
+      id: `hail_ride_${Date.now()}`,
+      passengerId: `p_hail_${Date.now()}`,
+      passengerName: passengerData.name.trim() || 'Street Passenger',
+      passengerPhone: passengerData.phone.trim() || '+252630000000',
+      passengerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      pickup: pickupNode,
+      dropoff: dropoffNode,
+      category: 'wadaage_taxi',
+      service_type: 'Normal',
+      categoryName: 'Normal Taxi (Street Hail)',
+      baseFare: 1.0,
+      distanceKm: 4.5,
+      durationMins: 12,
+      totalFare: fare,
+      paymentMethod: passengerData.paymentMethod || 'cash',
+      status: 'in_progress',
+      assignedDriverId: activeDriverId,
+      driverPhone: activeDriverPhone,
+      driverName: activeDriverName,
+      requestedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      startedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      otpCode: '1234',
+    };
+
+    sounds.playAcceptedChime();
+    setCurrentRide(streetHailRide);
+    handleRideStartCommissionDeduction(streetHailRide);
+
+    setAllPlatformRides((prev) => [streetHailRide, ...prev.filter((r) => r.id !== streetHailRide.id)]);
+    saveRideToFirestore(streetHailRide);
+    syncRideToHostinger(streetHailRide);
+    broadcastRideEvent('RIDE_ACCEPTED', streetHailRide);
+  };
+
   // Dispatch Batch Pool Ride Immediately (Bypass 60s window)
   const dispatchBatchPoolRideNow = () => {
     if (currentRide && currentRide.isInBatchingPool) {
@@ -5697,6 +5767,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dispatchBatchPoolRideNow,
         stackPassengerToActiveRide,
         bookRide,
+        createStreetHailRide,
         acceptBid,
         cancelRide,
         acceptRideByDriver,
