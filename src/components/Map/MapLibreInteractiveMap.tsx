@@ -31,27 +31,43 @@ const CARTO_KEY = rawCartoKey.includes('key=')
 
 const cartoKeyParam = CARTO_KEY ? `?api_key=${CARTO_KEY}&key=${CARTO_KEY}` : '';
 
-// Robust, high-speed CORS-enabled OpenStreetMap-based basemaps (Carto CDN)
-const CARTO_VOYAGER_TILES = [
-  `https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
-];
+// Robust, high-speed CORS-enabled OpenStreetMap-based basemaps
+const CARTO_VOYAGER_TILES = CARTO_KEY
+  ? [
+      `https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
+    ]
+  : [
+      'https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+      'https://b.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+      'https://c.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+    ];
 
-const CARTO_DARK_TILES = [
-  `https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-];
+const CARTO_DARK_TILES = CARTO_KEY
+  ? [
+      `https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+    ]
+  : [
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    ];
 
-const CARTO_LIGHT_TILES = [
-  `https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-  `https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-];
+const CARTO_LIGHT_TILES = CARTO_KEY
+  ? [
+      `https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+      `https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png${cartoKeyParam}`,
+    ]
+  : [
+      'https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+      'https://b.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+      'https://c.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+    ];
 
 const ESRI_SATELLITE_TILES = [
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -668,13 +684,15 @@ export const MapLibreInteractiveMap: React.FC<MapLibreInteractiveMapProps> = ({
       zoom: 13.8,
       attributionControl: false,
       transformRequest: (url: string) => {
-        // Automatically rewrite any openstreetmap tile request to Carto Voyager tiles with CORS
+        // Automatically rewrite any openstreetmap tile request to clean tiles with CORS
         if (url.includes('tile.openstreetmap.org')) {
           const match = url.match(/\/(\d+)\/(\d+)\/(\d+)\.png/);
           if (match) {
             const [, z, x, y] = match;
             return {
-              url: `https://a.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`,
+              url: CARTO_KEY
+                ? `https://a.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png${cartoKeyParam}`
+                : `https://a.tile.openstreetmap.fr/osmfr/${z}/${x}/${y}.png`,
             };
           }
         }

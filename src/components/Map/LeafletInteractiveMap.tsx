@@ -31,16 +31,20 @@ const cartoKeyParam = CARTO_KEY ? `?api_key=${CARTO_KEY}&key=${CARTO_KEY}` : '';
 // Tile Layer URLs
 const TILE_LAYERS = {
   dark: {
-    url: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`,
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: CARTO_KEY
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png${cartoKeyParam}`
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO / Esri',
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri &mdash; Source: Esri',
   },
   streets: {
-    url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`,
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: CARTO_KEY
+      ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKeyParam}`
+      : 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
   },
 };
 
