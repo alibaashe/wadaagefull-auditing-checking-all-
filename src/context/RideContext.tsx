@@ -4290,7 +4290,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setTimeout(() => {
         isActionPendingRef.current = false;
-      }, 200);
+      }, 400);
     }
   };
 
@@ -5090,6 +5090,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         completedAt: new Date().toLocaleTimeString(),
         optimalWaypointsSequence: updatedWaypoints || currentRide.optimalWaypointsSequence,
       };
+      dismissedRideIdsRef.current.add(completedRide.id);
       setCurrentRide(completedRide);
       setAllPlatformRides((prev) => {
         const filtered = prev.filter((r) => r.id !== completedRide.id);
@@ -5100,6 +5101,12 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveRideToFirestore(completedRide);
       syncRideToHostinger(completedRide);
       broadcastRideEvent('RIDE_STATUS_UPDATED', completedRide);
+
+      // Auto-clear completed ride for driver after broadcast so UI returns cleanly to idle/dispatch mode
+      setTimeout(() => {
+        setCurrentRide((prev) => (prev && prev.id === completedRide.id && prev.status === 'completed' ? null : prev));
+        try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+      }, 1500);
       return;
     }
 
@@ -5111,6 +5118,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'completed',
       completedAt: new Date().toLocaleTimeString(),
     };
+    dismissedRideIdsRef.current.add(completedRide.id);
     setCurrentRide(completedRide);
     setAllPlatformRides((prev) => {
       const filtered = prev.filter((r) => r.id !== completedRide.id);
@@ -5121,6 +5129,11 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveRideToFirestore(completedRide);
     syncRideToHostinger(completedRide);
     broadcastRideEvent('RIDE_STATUS_UPDATED', completedRide);
+
+    setTimeout(() => {
+      setCurrentRide((prev) => (prev && prev.id === completedRide.id && prev.status === 'completed' ? null : prev));
+      try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+    }, 1500);
   };
 
   // Rate and Tip
