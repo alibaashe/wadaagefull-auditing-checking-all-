@@ -4914,8 +4914,13 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isRiderBDone) {
           updatedRide.status = 'completed';
           updatedRide.completedAt = new Date().toLocaleTimeString();
+          dismissedRideIdsRef.current.add(updatedRide.id);
           sounds.playCompletedSound();
           handleTripCommissionAndEarnings(updatedRide);
+          setTimeout(() => {
+            setCurrentRide((prev) => (prev && prev.id === updatedRide.id && prev.status === 'completed' ? null : prev));
+            try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+          }, 1500);
         }
       }
     } else if (target === 'RIDER_B') {
@@ -4992,8 +4997,13 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isRiderADone) {
           updatedRide.status = 'completed';
           updatedRide.completedAt = new Date().toLocaleTimeString();
+          dismissedRideIdsRef.current.add(updatedRide.id);
           sounds.playCompletedSound();
           handleTripCommissionAndEarnings(updatedRide);
+          setTimeout(() => {
+            setCurrentRide((prev) => (prev && prev.id === updatedRide.id && prev.status === 'completed' ? null : prev));
+            try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+          }, 1500);
         }
       }
     }
