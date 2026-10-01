@@ -35,7 +35,7 @@ const RAW_GOOGLE_MAPS_KEY =
   (process.env as any).GOOGLE_MAPS_API_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-  'AlzaSyBAOVGm7NLFbVZdx2GCsn5_YjdYQVry_4w';
+  '';
 
 // Production Google Maps key
 const GOOGLE_MAPS_KEY = RAW_GOOGLE_MAPS_KEY.trim();
@@ -778,13 +778,63 @@ const GoogleMapRenderer: React.FC<GoogleInteractiveMapProps> = ({
 };
 
 export const GoogleInteractiveMap: React.FC<GoogleInteractiveMapProps> = (props) => {
-  if (!GOOGLE_MAPS_KEY) {
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    // 1. Listen for Google Maps auth failure callback
+    const handleAuthFailure = () => {
+      console.warn('Google Maps API authentication/load failed. Falling back to MapLibre.');
+      setLoadError(true);
+    };
+    (window as any).gm_authFailure = handleAuthFailure;
+
+    // 2. Hide Google error modal dialog overlay if inserted into DOM
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = `
+      .gm-err-container, .gm-err-modal, .gm-err-content, .gm-style-moc {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    // 3. Monitor DOM for Google error dialogs
+    const observer = new MutationObserver(() => {
+      const errModal = document.querySelector('.gm-err-container, .gm-err-modal, .gm-err-content');
+      if (errModal) {
+        console.warn('Google Maps error container detected in DOM. Triggering fallback to MapLibre.');
+        setLoadError(true);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      if ((window as any).gm_authFailure === handleAuthFailure) {
+        delete (window as any).gm_authFailure;
+      }
+      observer.disconnect();
+      if (styleEl.parentNode) {
+        styleEl.parentNode.removeChild(styleEl);
+      }
+    };
+  }, []);
+
+  if (!GOOGLE_MAPS_KEY || loadError) {
     return <MapLibreInteractiveMap {...props} />;
   }
 
   return (
     <MapErrorBoundary fallback={<MapLibreInteractiveMap {...props} />}>
-      <APIProvider apiKey={GOOGLE_MAPS_KEY} libraries={['places', 'geometry']}>
+      <APIProvider
+        apiKey={GOOGLE_MAPS_KEY}
+        libraries={['places', 'geometry']}
+        onError={(err) => {
+          console.warn('APIProvider onError caught:', err);
+          setLoadError(true);
+        }}
+      >
         <GoogleMapRenderer {...props} />
       </APIProvider>
     </MapErrorBoundary>

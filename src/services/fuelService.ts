@@ -307,7 +307,7 @@ export async function addFuelRefill(
   const totalCost = Math.round(refill.litersAdded * refill.pricePerLiterSlsh);
 
   const logEntry: FuelLogEntry = {
-    id: `refill_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    id: `refill_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
     driverId,
     vehicleId: vehicle.id,
     type: 'refill',
@@ -357,7 +357,7 @@ export async function correctFuelLevelManually(
   const previousFuel = vehicle.currentFuelLiters;
 
   const logEntry: FuelLogEntry = {
-    id: `correct_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    id: `correct_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
     driverId,
     vehicleId: vehicle.id,
     type: 'manual_correction',
@@ -421,7 +421,7 @@ export function startDrivingSession(
   location: { lat: number; lng: number }
 ): DrivingSessionRecord {
   const newSession: DrivingSessionRecord = {
-    id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    id: `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
     driverId,
     vehicleId: vehicle.id,
     startTime: new Date().toISOString(),

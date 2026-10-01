@@ -286,6 +286,7 @@ interface RideContextType {
   getDispatchRadiusKm: (category?: string) => number;
   isOrderWithinDriverDispatchRadius: (ride: { pickup?: { lat: number; lng: number }; category?: string } | null | undefined) => { isWithinRadius: boolean; distanceKm: number; allowedRadiusKm: number };
   validateWadaageMatch: (currentTrip: any, newRequest: any, driverLoc?: { lat: number; lng: number }, options?: any) => ValidateWadaageMatchResult;
+  createStreetHailRide?: (passengerData: { name: string; phone: string; destinationAddress?: string; fareUsd?: number; paymentMethod?: 'cash' | 'wallet' }) => void;
   // User & Driver Direct Registration (with WhatsApp OTP)
   registerRider: (userData: { name: string; phone: string; email?: string; password?: string }) => AuthUser;
   updateUserPassword: (userIdOrPhone: string, newPassword: string) => Promise<boolean>;
@@ -3050,7 +3051,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 3. Create completed ledger transaction
     const newTx: DriverWalletTransaction = {
-      id: `dtx_admin_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `dtx_admin_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       driverId: targetId,
       driverName: targetName,
       driverPhone: targetPhone,
@@ -3164,7 +3165,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Create completed audit transaction log
     const newTx: DriverWalletTransaction = {
-      id: `dtx_ctrl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `dtx_ctrl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       driverId: targetId,
       driverName: targetName,
       driverPhone: targetPhone,
@@ -3247,7 +3248,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const newTx: WalletTransaction = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       type: 'topup',
       amount: safeAmount,
       title: note || 'Admin Wallet Credit',
@@ -3577,6 +3578,83 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveRideToFirestore(newRide);
     syncRideToHostinger(newRide);
     broadcastRideEvent('RIDE_REQUESTED', newRide);
+  };
+
+  // Create Manual Street Hail Ride (Direct Pickup on the Road by Driver)
+  const createStreetHailRide = (passengerData: {
+    name: string;
+    phone: string;
+    destinationAddress?: string;
+    fareUsd?: number;
+    paymentMethod?: 'cash' | 'wallet';
+  }) => {
+    const activeDriverId = currentUser?.role === 'driver' ? (currentUser.id || currentUser.phone || 'drv_01') : 'drv_01';
+    const activeDriverPhone = currentUser?.role === 'driver' ? (currentUser.phone || '') : '';
+    const activeDriverName = currentUser?.role === 'driver' ? (currentUser.name || 'Captain') : 'Captain';
+
+    const driverLoc = getDriverCoordinates();
+    const pickupNode: LocationNode = {
+      id: `hail_pick_${Date.now()}`,
+      name: 'Direct Street Pickup',
+      address: `Street Hail: ${driverLoc.lat.toFixed(4)}, ${driverLoc.lng.toFixed(4)}, Hargeisa`,
+      lat: driverLoc.lat,
+      lng: driverLoc.lng,
+      zone: 'Hargeisa',
+    };
+
+    const destAddress = passengerData.destinationAddress?.trim() || 'Hargeisa Destination';
+    const dropoffNode: LocationNode = {
+      id: `hail_drop_${Date.now()}`,
+      name: destAddress,
+      address: `${destAddress}, Hargeisa`,
+      lat: driverLoc.lat + 0.015,
+      lng: driverLoc.lng + 0.015,
+      zone: 'Hargeisa',
+    };
+
+    const fare = passengerData.fareUsd && passengerData.fareUsd > 0 ? passengerData.fareUsd : 3.50;
+
+    const streetHailRide: RideRequest = {
+      id: `hail_ride_${Date.now()}`,
+      passengerId: `p_hail_${Date.now()}`,
+      passengerName: passengerData.name.trim() || 'Street Passenger',
+      passengerPhone: passengerData.phone.trim() || '+252630000000',
+      passengerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      pickup: pickupNode,
+      dropoff: dropoffNode,
+      category: 'wadaage_taxi',
+      service_type: 'Normal',
+      categoryName: 'Normal Taxi (Street Hail)',
+      baseFare: 1.0,
+      distanceKm: 4.5,
+      durationMins: 12,
+      totalFare: fare,
+      paymentMethod: passengerData.paymentMethod || 'cash',
+      status: 'in_progress',
+      assignedDriverId: activeDriverId,
+      driverPhone: activeDriverPhone,
+      driverName: activeDriverName,
+      requestedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      startedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      otpCode: '1234',
+    };
+
+    const curDrvBal = getDriverWalletBalance(activeDriverId) || (activeDriverPhone ? getDriverWalletBalance(activeDriverPhone) : 0);
+    const minThreshUsd = pricing.driverMinWalletThresholdUsd || 0.10;
+
+    if (curDrvBal <= 0 || curDrvBal < minThreshUsd) {
+      setLowBalanceLockoutAlert(true);
+      return;
+    }
+
+    sounds.playAcceptedChime();
+    setCurrentRide(streetHailRide);
+    handleRideStartCommissionDeduction(streetHailRide);
+
+    setAllPlatformRides((prev) => [streetHailRide, ...prev.filter((r) => r.id !== streetHailRide.id)]);
+    saveRideToFirestore(streetHailRide);
+    syncRideToHostinger(streetHailRide);
+    broadcastRideEvent('RIDE_ACCEPTED', streetHailRide);
   };
 
   // Dispatch Batch Pool Ride Immediately (Bypass 60s window)
@@ -4290,7 +4368,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setTimeout(() => {
         isActionPendingRef.current = false;
-      }, 200);
+      }, 400);
     }
   };
 
@@ -4373,22 +4451,18 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[RideContext] Self-test / same account booking accepted.');
       }
 
-      // Auto-ensure driver has prepaid commission balance (minimum 1,000 SLSH / $0.10 USD)
+      // Strict Prepaid Balance Rule: Check if driver has sufficient real prepaid balance
       const currentDrvBal = getDriverWalletBalance(drvId) || (drvPhone ? getDriverWalletBalance(drvPhone) : 0);
       const minThreshUsd = pricing.driverMinWalletThresholdUsd || 0.10;
 
-      if (currentDrvBal < minThreshUsd) {
-        // Automatically credit starter promotional commission balance ($1.00 USD / 10,000 SLSH) so driver is never blocked
-        const starterBal = 1.00;
-        setDriverWallets((prev) => {
-          const updated = { ...prev, [drvId]: starterBal };
-          if (drvPhone) updated[drvPhone] = starterBal;
-          try {
-            localStorage.setItem('wadaage_driver_wallets_map', JSON.stringify(updated));
-          } catch (_e) {}
-          return updated;
-        });
-        console.log('[RideContext] Auto-credited starter commission balance to driver:', drvId);
+      if (currentDrvBal <= 0 || currentDrvBal < minThreshUsd) {
+        setLowBalanceLockoutAlert(true);
+        setIncomingDriverRequest(null);
+        notificationService.stopEmergencyOrderRingtone();
+        return {
+          success: false,
+          message: 'HARAAGU WAA 0.00 SLSH: Ma aqbali kartid dalabka ilaa aad ku shubato haraagaaga. (Insufficient prepaid driver balance).',
+        };
       }
 
       const resolvedDriverName = driverObj?.name || (currentUser?.role === 'driver' ? currentUser.name : 'Wadaage Captain');
@@ -4840,8 +4914,13 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isRiderBDone) {
           updatedRide.status = 'completed';
           updatedRide.completedAt = new Date().toLocaleTimeString();
+          dismissedRideIdsRef.current.add(updatedRide.id);
           sounds.playCompletedSound();
           handleTripCommissionAndEarnings(updatedRide);
+          setTimeout(() => {
+            setCurrentRide((prev) => (prev && prev.id === updatedRide.id && prev.status === 'completed' ? null : prev));
+            try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+          }, 1500);
         }
       }
     } else if (target === 'RIDER_B') {
@@ -4918,8 +4997,13 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isRiderADone) {
           updatedRide.status = 'completed';
           updatedRide.completedAt = new Date().toLocaleTimeString();
+          dismissedRideIdsRef.current.add(updatedRide.id);
           sounds.playCompletedSound();
           handleTripCommissionAndEarnings(updatedRide);
+          setTimeout(() => {
+            setCurrentRide((prev) => (prev && prev.id === updatedRide.id && prev.status === 'completed' ? null : prev));
+            try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+          }, 1500);
         }
       }
     }
@@ -5090,6 +5174,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         completedAt: new Date().toLocaleTimeString(),
         optimalWaypointsSequence: updatedWaypoints || currentRide.optimalWaypointsSequence,
       };
+      dismissedRideIdsRef.current.add(completedRide.id);
       setCurrentRide(completedRide);
       setAllPlatformRides((prev) => {
         const filtered = prev.filter((r) => r.id !== completedRide.id);
@@ -5100,6 +5185,12 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveRideToFirestore(completedRide);
       syncRideToHostinger(completedRide);
       broadcastRideEvent('RIDE_STATUS_UPDATED', completedRide);
+
+      // Auto-clear completed ride for driver after broadcast so UI returns cleanly to idle/dispatch mode
+      setTimeout(() => {
+        setCurrentRide((prev) => (prev && prev.id === completedRide.id && prev.status === 'completed' ? null : prev));
+        try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+      }, 1500);
       return;
     }
 
@@ -5111,6 +5202,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'completed',
       completedAt: new Date().toLocaleTimeString(),
     };
+    dismissedRideIdsRef.current.add(completedRide.id);
     setCurrentRide(completedRide);
     setAllPlatformRides((prev) => {
       const filtered = prev.filter((r) => r.id !== completedRide.id);
@@ -5121,6 +5213,11 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveRideToFirestore(completedRide);
     syncRideToHostinger(completedRide);
     broadcastRideEvent('RIDE_STATUS_UPDATED', completedRide);
+
+    setTimeout(() => {
+      setCurrentRide((prev) => (prev && prev.id === completedRide.id && prev.status === 'completed' ? null : prev));
+      try { localStorage.removeItem('wadaage_current_ride'); } catch (_e) {}
+    }, 1500);
   };
 
   // Rate and Tip
@@ -5684,6 +5781,7 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dispatchBatchPoolRideNow,
         stackPassengerToActiveRide,
         bookRide,
+        createStreetHailRide,
         acceptBid,
         cancelRide,
         acceptRideByDriver,
