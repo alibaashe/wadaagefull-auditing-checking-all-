@@ -3639,6 +3639,14 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
       otpCode: '1234',
     };
 
+    const curDrvBal = getDriverWalletBalance(activeDriverId) || (activeDriverPhone ? getDriverWalletBalance(activeDriverPhone) : 0);
+    const minThreshUsd = pricing.driverMinWalletThresholdUsd || 0.10;
+
+    if (curDrvBal <= 0 || curDrvBal < minThreshUsd) {
+      setLowBalanceLockoutAlert(true);
+      return;
+    }
+
     sounds.playAcceptedChime();
     setCurrentRide(streetHailRide);
     handleRideStartCommissionDeduction(streetHailRide);
@@ -4443,22 +4451,18 @@ export const RideProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[RideContext] Self-test / same account booking accepted.');
       }
 
-      // Auto-ensure driver has prepaid commission balance (minimum 1,000 SLSH / $0.10 USD)
+      // Strict Prepaid Balance Rule: Check if driver has sufficient real prepaid balance
       const currentDrvBal = getDriverWalletBalance(drvId) || (drvPhone ? getDriverWalletBalance(drvPhone) : 0);
       const minThreshUsd = pricing.driverMinWalletThresholdUsd || 0.10;
 
-      if (currentDrvBal < minThreshUsd) {
-        // Automatically credit starter promotional commission balance ($1.00 USD / 10,000 SLSH) so driver is never blocked
-        const starterBal = 1.00;
-        setDriverWallets((prev) => {
-          const updated = { ...prev, [drvId]: starterBal };
-          if (drvPhone) updated[drvPhone] = starterBal;
-          try {
-            localStorage.setItem('wadaage_driver_wallets_map', JSON.stringify(updated));
-          } catch (_e) {}
-          return updated;
-        });
-        console.log('[RideContext] Auto-credited starter commission balance to driver:', drvId);
+      if (currentDrvBal <= 0 || currentDrvBal < minThreshUsd) {
+        setLowBalanceLockoutAlert(true);
+        setIncomingDriverRequest(null);
+        notificationService.stopEmergencyOrderRingtone();
+        return {
+          success: false,
+          message: 'HARAAGU WAA 0.00 SLSH: Ma aqbali kartid dalabka ilaa aad ku shubato haraagaaga. (Insufficient prepaid driver balance).',
+        };
       }
 
       const resolvedDriverName = driverObj?.name || (currentUser?.role === 'driver' ? currentUser.name : 'Wadaage Captain');
