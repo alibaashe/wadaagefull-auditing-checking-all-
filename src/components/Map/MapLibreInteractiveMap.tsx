@@ -916,40 +916,26 @@ export const MapLibreInteractiveMap: React.FC<MapLibreInteractiveMapProps> = ({
   }, [drivers, currentRide?.status, currentRide?.assignedDriverId, generateDriverGeoJson, followDriver, activeDriver]);
 
   // ----------------------------------------------------
-  // LIVE VEHICLE MOVEMENT VIA MAPBOX setData
-  // When assigned driver is en-route, smoothly moves vehicle along OSRM path
+  // REAL LIVE VEHICLE GPS TELEMATICS
+  // Strict Real GPS: Vehicle markers update strictly from driver.currentLocation / real live telemetry without fake interval simulation
   // ----------------------------------------------------
   useEffect(() => {
-    if (!isTrackingLiveVehicle || approachCoords.length < 2 || !assignedDriver) return;
-    if (!mapInstanceRef.current) return;
+    if (!assignedDriver || !assignedDriver.currentLocation) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
     const driverId = assignedDriver.id;
-    let stepIdx = 0;
-    const interval = setInterval(() => {
-      if (stepIdx >= approachCoords.length) {
-        stepIdx = 0;
-      }
-      const [lng, lat] = approachCoords[stepIdx];
+    const { lat, lng } = assignedDriver.currentLocation;
 
-      const map = mapInstanceRef.current;
-      if (map) {
-        // Trigger Mapbox setData for 'driver-location'
-        const driverLocationSource = map.getSource('driver-location') as GeoJSONSource | undefined;
-        if (driverLocationSource && typeof driverLocationSource.setData === 'function') {
-          driverLocationSource.setData(generateDriverGeoJson(driversRef.current));
-        }
+    if (driverMarkersRef.current[driverId]) {
+      driverMarkersRef.current[driverId].setLngLat([lng, lat]);
+    }
 
-        // Update DOM Marker directly
-        if (driverMarkersRef.current[driverId]) {
-          driverMarkersRef.current[driverId].setLngLat([lng, lat]);
-        }
-      }
-
-      stepIdx++;
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [isTrackingLiveVehicle, approachCoords, assignedDriver?.id, generateDriverGeoJson]);
+    const driverLocationSource = map.getSource('driver-location') as GeoJSONSource | undefined;
+    if (driverLocationSource && typeof driverLocationSource.setData === 'function') {
+      driverLocationSource.setData(generateDriverGeoJson(driversRef.current));
+    }
+  }, [assignedDriver?.currentLocation?.lat, assignedDriver?.currentLocation?.lng, generateDriverGeoJson]);
 
   // ----------------------------------------------------
   // PICKUP, DROPOFF & MULTI-STOP WAYPOINT PINS
